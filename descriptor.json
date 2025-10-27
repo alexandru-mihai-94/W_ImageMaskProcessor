@@ -3,7 +3,7 @@
   "description": "2D image thresholding and region analysis",
   "schema-version": "cytomine-0.1",
   "container-image": {
-    "image": "alexandrumihai2020/w_imagemaskprocessor",
+    "image": "alexandrumihai2020/w-imagemaskprocessor:v0.01",
     "type": "singularity"
   },
   "command-line": "python wrapper.py [CYTOMINE_HOST] [CYTOMINE_PUBLIC_KEY] [CYTOMINE_PRIVATE_KEY] [CYTOMINE_ID_PROJECT] [CYTOMINE_ID_SOFTWARE] [MIN_THRESH] [MIN_AREA]",
