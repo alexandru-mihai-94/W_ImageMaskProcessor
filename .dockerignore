@@ -1,0 +1,56 @@
+# Only include wrapper.py and descriptor.json in Docker image
+
+# Python cache
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Data files
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+*.csv
+*.json
+!descriptor.json
+
+# Git
+.git/
+.gitignore
+
+# System
+.DS_Store
+*.log
+
+# Test and output files
+test_*
+simple_mask*
+output_*
+large_image*
+docker_test*
+final_test*
+wrapper_test*
+
+# Other directories and scripts
+detectron2/
+leaf_mosaic_nextflow/
+.nextflow*
+.claude/
+
+# Old/unused scripts (not needed in Docker)
+image_masker.py
+mask_analyzer.py
+simple_masker.py
+test_tif.py
+run_image_processor.py
+image_processor.py
+requirements.txt

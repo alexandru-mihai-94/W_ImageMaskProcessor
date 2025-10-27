@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Data files (don't commit test images)
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+*.csv
+
+# System
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+.nextflow*
+
+# Project-specific
+detectron2/
+leaf_mosaic_nextflow/
+.claude/
+
+# Old/development scripts (keep only wrapper.py)
+image_processor.py
+image_masker.py
+mask_analyzer.py
+simple_masker.py
+test_tif.py
+run_image_processor.py
+requirements.txt
+
+# Test outputs
+test_*
+output_*
+simple_mask*
+docker_test*
+final_test*
+wrapper_test*

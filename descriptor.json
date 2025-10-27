@@ -1,0 +1,77 @@
+{
+  "name": "ImageMaskProcessor",
+  "description": "2D image thresholding and region analysis",
+  "schema-version": "cytomine-0.1",
+  "container-image": {
+    "image": "your-dockerhub-username/w_imagemaskprocessor",
+    "type": "singularity"
+  },
+  "command-line": "python wrapper.py [CYTOMINE_HOST] [CYTOMINE_PUBLIC_KEY] [CYTOMINE_PRIVATE_KEY] [CYTOMINE_ID_PROJECT] [CYTOMINE_ID_SOFTWARE] [MIN_THRESH] [MIN_AREA]",
+  "inputs": [
+    {
+      "id": "cytomine_host",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Cytomine host",
+      "set-by-server": true,
+      "optional": false,
+      "type": "String"
+    },
+    {
+      "id": "cytomine_public_key",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Cytomine public key",
+      "set-by-server": true,
+      "optional": false,
+      "type": "String"
+    },
+    {
+      "id": "cytomine_private_key",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Cytomine private key",
+      "set-by-server": true,
+      "optional": false,
+      "type": "String"
+    },
+    {
+      "id": "cytomine_id_project",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Cytomine project ID",
+      "set-by-server": true,
+      "optional": false,
+      "type": "Number"
+    },
+    {
+      "id": "cytomine_id_software",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Cytomine software ID",
+      "set-by-server": true,
+      "optional": false,
+      "type": "Number"
+    },
+    {
+      "id": "min_thresh",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Minimum threshold",
+      "description": "Minimum intensity threshold (0-255). Pixels with value >= threshold are kept as foreground.",
+      "optional": true,
+      "type": "Number",
+      "default-value": 10
+    },
+    {
+      "id": "min_area",
+      "value-key": "[@ID]",
+      "command-line-flag": "--@id",
+      "name": "Minimum area",
+      "description": "Minimum area in pixels for region filtering. Regions smaller than this will be excluded.",
+      "optional": true,
+      "type": "Number",
+      "default-value": 1.0
+    }
+  ]
+}
