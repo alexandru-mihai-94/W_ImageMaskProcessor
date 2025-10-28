@@ -62,6 +62,35 @@ def _clear_directory(directory: str) -> None:
             print(f"Warning: could not remove {entry.path}: {exc}")
 
 
+def _clean_filename(filename: str) -> tuple[str, str]:
+    """
+    Clean OMERO filename and return (base_name, extension).
+
+    OMERO appends .X.tif to filenames (e.g., image.tif.0.tif).
+    This function removes the .X.tif suffix to get the original name.
+
+    Args:
+        filename: Input filename (e.g., "image.tif.0.tif")
+
+    Returns:
+        Tuple of (base_name, extension) (e.g., ("image", ".tif"))
+    """
+    import re
+
+    # Check if filename matches OMERO pattern: *.ext.N.ext
+    # e.g., "image.tif.0.tif" -> base="image", ext=".tif"
+    match = re.match(r'^(.+?)(\.\w+)\.\d+(\.\w+)$', filename)
+    if match:
+        base = match.group(1)
+        ext = match.group(2)
+        print(f"  Cleaned OMERO filename: {filename} -> {base}{ext}")
+        return base, ext
+
+    # Standard filename: just split extension normally
+    base, ext = os.path.splitext(filename)
+    return base, ext
+
+
 def process_image(image_path: str, min_thresh: int, min_area: float, output_mask_path: str, output_csv_path: str):
     """
     Process a single image: threshold, find regions, save mask and statistics.
@@ -190,9 +219,8 @@ def main(argv):
             # Read input image
             fn = os.path.join(in_path, bfimg.filename)
 
-            # Generate output filenames
-            base_name = os.path.splitext(bfimg.filename)[0]
-            ext = os.path.splitext(bfimg.filename)[1]
+            # Generate output filenames (clean OMERO naming convention)
+            base_name, ext = _clean_filename(bfimg.filename)
             mask_filename = f"{base_name}_mask{ext}"
             csv_filename = f"{base_name}_statistics.csv"
 
@@ -208,22 +236,22 @@ def main(argv):
         # 3. Copy results to output folder
         print("Copying results to output folder...")
         for bimg in in_imgs:
-            base_name = os.path.splitext(bimg.filename)[0]
-            ext = os.path.splitext(bimg.filename)[1]
+            # Clean OMERO filename
+            base_name, ext = _clean_filename(bimg.filename)
 
             # Copy mask
             mask_filename = f"{base_name}_mask{ext}"
             src_mask = os.path.join(tmp_path, mask_filename)
             if os.path.exists(src_mask):
                 shutil.copy(src_mask, out_path)
-                print(f"  Copied mask to {out_path}")
+                print(f"  Copied mask to {out_path}/{mask_filename}")
 
             # Copy CSV
             csv_filename = f"{base_name}_statistics.csv"
             src_csv = os.path.join(tmp_path, csv_filename)
             if os.path.exists(src_csv):
                 shutil.copy(src_csv, out_path)
-                print(f"  Copied CSV to {out_path}")
+                print(f"  Copied CSV to {out_path}/{csv_filename}")
 
         # 4. Cleanup temporary directory
         _clear_directory(tmp_path)
