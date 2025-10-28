@@ -1,163 +1,91 @@
 #!/usr/bin/env python3
 """
-Wrapper for Image Mask Processor - BIAFLOWS compatible
+Wrapper for Image Mask Processor - BIOMERO compatible
 2D image thresholding and region analysis
 """
 
+import argparse
 import sys
 import os
-import numpy as np
-import cv2
+import shutil
 import csv
+from types import SimpleNamespace
+from typing import List, Sequence, Tuple
 from pathlib import Path
 
-# Optional BIAFLOWS integration
-try:
-    from biaflows import CLASS_OBJSEG
-    from biaflows.helpers import BiaflowsJob, prepare_data, upload_data, upload_metrics
-    from cytomine.models import Job
-    BIAFLOWS_AVAILABLE = True
-except ImportError:
-    BIAFLOWS_AVAILABLE = False
-    print("BIAFLOWS utilities not available - running in standalone mode", file=sys.stderr)
+import numpy as np
+import cv2
+from bioflows_local import CLASS_SPTCNT, BiaflowsJob, prepare_data, get_discipline
 
 
-def main(argv):
-    """Main execution function."""
+def _parse_bool(value) -> bool:
+    """Parse boolean values from string."""
+    if isinstance(value, bool):
+        return value
+    truthy = {"true", "1", "yes", "y", "on"}
+    falsy = {"false", "0", "no", "n", "off"}
+    normalised = value.strip().lower()
+    if normalised in truthy:
+        return True
+    if normalised in falsy:
+        return False
+    raise argparse.ArgumentTypeError(f"Cannot interpret '{value}' as a boolean.")
 
-    # Base path for Singularity compatibility
-    base_path = "{}".format(os.getenv("HOME"))
 
-    if BIAFLOWS_AVAILABLE:
-        # BIAFLOWS mode - use job context manager
-        with BiaflowsJob.from_cli(argv) as nj:
-            run_workflow(nj, base_path)
-    else:
-        # Standalone mode - parse arguments manually
-        run_standalone(argv)
+def _parse_cli_args(argv: Sequence[str]) -> Tuple[argparse.Namespace, List[str]]:
+    """Parse workflow-specific arguments."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--min-thresh", "--min_thresh", dest="min_thresh", type=int)
+    parser.add_argument("--min-area", "--min_area", dest="min_area", type=float)
+    args, remaining = parser.parse_known_args(argv)
+
+    # Set defaults if not provided
+    if args.min_thresh is None:
+        args.min_thresh = 10
+    if args.min_area is None:
+        args.min_area = 1.0
+
+    return args, list(remaining)
 
 
-def run_workflow(nj, base_path):
+def _clear_directory(directory: str) -> None:
+    """Remove all content inside directory without deleting the directory itself."""
+    if not os.path.isdir(directory):
+        return
+    for entry in os.scandir(directory):
+        try:
+            if entry.is_dir(follow_symlinks=False):
+                shutil.rmtree(entry.path, ignore_errors=True)
+            else:
+                os.remove(entry.path)
+        except OSError as exc:
+            print(f"Warning: could not remove {entry.path}: {exc}")
+
+
+def process_image(image_path: str, min_thresh: int, min_area: float, output_mask_path: str, output_csv_path: str):
     """
-    Run workflow with BIAFLOWS integration.
+    Process a single image: threshold, find regions, save mask and statistics.
 
     Args:
-        nj: BiaflowsJob instance
-        base_path: Base directory path
+        image_path: Path to input image
+        min_thresh: Minimum threshold value (0-255)
+        min_area: Minimum area in pixels for region filtering
+        output_mask_path: Path to save output mask
+        output_csv_path: Path to save CSV statistics
     """
-    # Update job status
-    nj.job.update(status=Job.RUNNING, progress=0, statusComment="Initializing...")
-
-    # Problem class for BIAFLOWS
-    problem_cls = CLASS_OBJSEG
-
-    # Get parameters from BIAFLOWS job
-    min_thresh = nj.parameters.min_thresh
-    min_area = nj.parameters.min_area
-
-    # Prepare data (uses BIAFLOWS helpers)
-    nj.job.update(progress=1, statusComment="Preparing data...")
-    in_imgs, gt_imgs, in_path, gt_path, out_path, tmp_path = prepare_data(
-        problem_cls, nj, is_2d=True, **nj.flags
-    )
-
-    # Process each image
-    for i, in_img in enumerate(in_imgs):
-        progress = int(10 + (70 * i / len(in_imgs)))
-        nj.job.update(progress=progress, statusComment=f"Processing image {i+1}/{len(in_imgs)}...")
-
-        # Load image
-        image = cv2.imread(str(in_img.filepath), cv2.IMREAD_UNCHANGED)
-
-        # Convert to grayscale if needed
-        if len(image.shape) == 3:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Apply threshold
-        _, mask = cv2.threshold(image, min_thresh - 1, 255, cv2.THRESH_BINARY)
-
-        # Find contours
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Create labeled mask
-        labeled_mask = np.zeros_like(mask, dtype=np.uint16)
-        region_id = 1
-
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area >= min_area:
-                cv2.drawContours(labeled_mask, [contour], -1, region_id, -1)
-                region_id += 1
-
-        # Save labeled mask
-        out_file = out_path / in_img.filename
-        cv2.imwrite(str(out_file), labeled_mask)
-
-    # Upload results to BIAFLOWS
-    nj.job.update(progress=80, statusComment="Uploading results...")
-    upload_data(problem_cls, nj, in_imgs, out_path, **nj.flags, monitor_params={
-        "start": 80, "end": 90, "period": 0.1
-    })
-
-    # Compute and upload metrics
-    nj.job.update(progress=90, statusComment="Computing metrics...")
-    upload_metrics(problem_cls, nj, in_imgs, gt_path, out_path, tmp_path, **nj.flags)
-
-    # Complete
-    nj.job.update(status=Job.TERMINATED, progress=100,
-                  statusComment=f"Completed - processed {len(in_imgs)} images")
-
-
-def run_standalone(argv):
-    """
-    Run in standalone mode without BIAFLOWS.
-
-    Args:
-        argv: Command line arguments
-    """
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser(description="Image Mask Processor")
-    parser.add_argument('--input', required=True, help='Input image path')
-    parser.add_argument('--output_mask', required=True, help='Output mask path')
-    parser.add_argument('--output_csv', required=True, help='Output CSV path')
-    parser.add_argument('--min_thresh', type=int, default=10,
-                       help='Minimum threshold (0-255)')
-    parser.add_argument('--min_area', type=float, default=1.0,
-                       help='Minimum area in pixels')
-
-    # BIAFLOWS params (ignored in standalone mode)
-    parser.add_argument('--cytomine_host', default='')
-    parser.add_argument('--cytomine_public_key', default='')
-    parser.add_argument('--cytomine_private_key', default='')
-    parser.add_argument('--cytomine_id_project', type=int, default=0)
-    parser.add_argument('--cytomine_id_software', type=int, default=0)
-
-    args = parser.parse_args(argv)
-
-    print(f"Processing: {args.input}")
-    print(f"Min threshold: {args.min_thresh}")
-    print(f"Min area: {args.min_area}")
-
-    # Validate input
-    if not Path(args.input).exists():
-        raise FileNotFoundError(f"Input not found: {args.input}")
-
-    # Create output directories
-    Path(args.output_mask).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)
+    print(f"Processing: {image_path}")
 
     # Load image
-    image = cv2.imread(args.input, cv2.IMREAD_UNCHANGED)
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     if image is None:
-        raise ValueError(f"Failed to load image: {args.input}")
+        raise ValueError(f"Failed to load image: {image_path}")
 
     # Convert to grayscale if needed
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Apply threshold
-    _, mask = cv2.threshold(image, args.min_thresh - 1, 255, cv2.THRESH_BINARY)
+    _, mask = cv2.threshold(image, min_thresh - 1, 255, cv2.THRESH_BINARY)
 
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -169,7 +97,7 @@ def run_standalone(argv):
         area = cv2.contourArea(contour)
         perimeter = cv2.arcLength(contour, True)
 
-        if area < args.min_area:
+        if area < min_area:
             continue
 
         # Bounding box
@@ -214,18 +142,92 @@ def run_standalone(argv):
         region['region_id'] = i
 
     # Save mask
-    cv2.imwrite(args.output_mask, mask)
+    cv2.imwrite(output_mask_path, mask)
 
     # Save CSV
     if regions:
-        with open(args.output_csv, 'w', newline='') as f:
+        with open(output_csv_path, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=regions[0].keys())
             writer.writeheader()
             writer.writerows(regions)
 
-    print(f"✓ Mask saved: {args.output_mask}")
-    print(f"✓ CSV saved: {args.output_csv}")
-    print(f"✓ Regions detected: {len(regions)}")
+    print(f"  ✓ Mask saved: {output_mask_path}")
+    print(f"  ✓ CSV saved: {output_csv_path}")
+    print(f"  ✓ Regions detected: {len(regions)}")
+
+
+def main(argv):
+    """Main execution function."""
+    overrides, remaining = _parse_cli_args(argv)
+    parameters = SimpleNamespace(
+        min_thresh=int(overrides.min_thresh),
+        min_area=float(overrides.min_area),
+    )
+
+    with BiaflowsJob.from_cli(remaining, parameters=parameters) as bj:
+        min_thresh = parameters.min_thresh
+        min_area = parameters.min_area
+
+        print("Initializing...")
+
+        # 1. Prepare data for workflow
+        in_imgs, gt_imgs, in_path, gt_path, out_path, tmp_path = prepare_data(
+            get_discipline(bj, default=CLASS_SPTCNT), bj, is_2d=True, **bj.flags
+        )
+
+        # Create temporary directory for this run
+        tmp_path = os.path.join(tmp_path, "mask_processor_tmp")
+        os.makedirs(tmp_path, exist_ok=True)
+
+        print(f"Parameters: Min threshold: {min_thresh} | Min area: {min_area}")
+
+        # 2. Run image analysis workflow
+        print("Launching workflow...")
+
+        for bfimg in in_imgs:
+            print(f"Processing: {bfimg.__dict__}")
+
+            # Read input image
+            fn = os.path.join(in_path, bfimg.filename)
+
+            # Generate output filenames
+            base_name = os.path.splitext(bfimg.filename)[0]
+            ext = os.path.splitext(bfimg.filename)[1]
+            mask_filename = f"{base_name}_mask{ext}"
+            csv_filename = f"{base_name}_statistics.csv"
+
+            # Process image
+            process_image(
+                image_path=fn,
+                min_thresh=min_thresh,
+                min_area=min_area,
+                output_mask_path=os.path.join(tmp_path, mask_filename),
+                output_csv_path=os.path.join(tmp_path, csv_filename)
+            )
+
+        # 3. Copy results to output folder
+        print("Copying results to output folder...")
+        for bimg in in_imgs:
+            base_name = os.path.splitext(bimg.filename)[0]
+            ext = os.path.splitext(bimg.filename)[1]
+
+            # Copy mask
+            mask_filename = f"{base_name}_mask{ext}"
+            src_mask = os.path.join(tmp_path, mask_filename)
+            if os.path.exists(src_mask):
+                shutil.copy(src_mask, out_path)
+                print(f"  Copied mask to {out_path}")
+
+            # Copy CSV
+            csv_filename = f"{base_name}_statistics.csv"
+            src_csv = os.path.join(tmp_path, csv_filename)
+            if os.path.exists(src_csv):
+                shutil.copy(src_csv, out_path)
+                print(f"  Copied CSV to {out_path}")
+
+        # 4. Cleanup temporary directory
+        _clear_directory(tmp_path)
+        print("Finished.")
 
 
 if __name__ == "__main__":

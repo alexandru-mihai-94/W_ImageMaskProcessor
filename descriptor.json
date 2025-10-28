@@ -1,77 +1,35 @@
 {
   "name": "ImageMaskProcessor",
   "description": "2D image thresholding and region analysis",
-  "schema-version": "cytomine-0.1",
   "container-image": {
     "image": "alexandrumihai2020/w-imagemaskprocessor",
     "type": "singularity"
   },
-  "command-line": "python wrapper.py [CYTOMINE_HOST] [CYTOMINE_PUBLIC_KEY] [CYTOMINE_PRIVATE_KEY] [CYTOMINE_ID_PROJECT] [CYTOMINE_ID_SOFTWARE] [MIN_THRESH] [MIN_AREA]",
+  "command-line": "python wrapper.py --min-thresh @min_thresh --min-area @min_area",
   "inputs": [
     {
-      "id": "cytomine_host",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
-      "name": "Cytomine host",
-      "set-by-server": true,
-      "optional": false,
-      "type": "String"
-    },
-    {
-      "id": "cytomine_public_key",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
-      "name": "Cytomine public key",
-      "set-by-server": true,
-      "optional": false,
-      "type": "String"
-    },
-    {
-      "id": "cytomine_private_key",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
-      "name": "Cytomine private key",
-      "set-by-server": true,
-      "optional": false,
-      "type": "String"
-    },
-    {
-      "id": "cytomine_id_project",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
-      "name": "Cytomine project ID",
-      "set-by-server": true,
-      "optional": false,
-      "type": "Number"
-    },
-    {
-      "id": "cytomine_id_software",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
-      "name": "Cytomine software ID",
-      "set-by-server": true,
-      "optional": false,
-      "type": "Number"
-    },
-    {
       "id": "min_thresh",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
+      "value-key": "@min_thresh",
+      "command-line-flag": "--min-thresh",
       "name": "Minimum threshold",
       "description": "Minimum intensity threshold (0-255). Pixels with value >= threshold are kept as foreground.",
+      "default-value": 10,
+      "set-by-server": false,
       "optional": true,
-      "type": "Number",
-      "default-value": 10
+      "type": "Number"
     },
     {
       "id": "min_area",
-      "value-key": "[@ID]",
-      "command-line-flag": "--@id",
+      "value-key": "@min_area",
+      "command-line-flag": "--min-area",
       "name": "Minimum area",
       "description": "Minimum area in pixels for region filtering. Regions smaller than this will be excluded.",
+      "default-value": 1.0,
+      "set-by-server": false,
       "optional": true,
-      "type": "Number",
-      "default-value": 1.0
+      "type": "Number"
     }
-  ]
+  ],
+
+  "schema-version": "cytomine-0.1"
 }
