@@ -208,7 +208,11 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         action="store_true",
         help="Compatibility flag ignored by the local runner.",
     )
-    parsed = parser.parse_args(argv)
+    # Use parse_known_args to ignore unknown arguments like -nmc from SLURM/OMERO
+    import sys
+    parsed, unknown = parser.parse_known_args(argv)
+    if unknown:
+        print(f"Warning: ignoring unknown arguments: {unknown}", file=sys.stderr)
     return parsed
 
 def _parse_bool(value):
