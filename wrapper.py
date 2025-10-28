@@ -170,8 +170,8 @@ def process_image(image_path: str, min_thresh: int, min_area: float, output_mask
     for i, region in enumerate(regions):
         region['region_id'] = i
 
-    # Save mask
-    cv2.imwrite(output_mask_path, mask)
+    # Save mask (uncompressed TIFF for OMERO compatibility)
+    cv2.imwrite(output_mask_path, mask, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
 
     # Save CSV
     if regions:
