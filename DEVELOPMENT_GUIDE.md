@@ -89,7 +89,7 @@ OMERO appends `.X.tif` to tiled images (e.g., `image.tif.0.tif`). Clean this:
 ```python
 def clean_omero_filename(filename: str) -> tuple:
     """
-    Remove OMERO's .X.tif suffix to get original name.
+    Remove OMERO's .X.tif suffix to get the original name.
 
     Examples:
         'image.tif.0.tif' -> ('image', '.tif')
@@ -174,10 +174,10 @@ This is **too heavy** for simple OMERO integration.
 ### Solution: bioflows_local.py
 
 A **standalone BIAFLOWS-compatible interface** that:
-- ✅ Provides BIAFLOWS API without Cytomine
-- ✅ Handles input/output directories
-- ✅ Works offline/locally
-- ✅ Compatible with BIOMERO's SLURM integration
+- Provides BIAFLOWS API without Cytomine
+- Handles input/output directories
+- Works offline/locally
+- Compatible with BIOMERO's SLURM integration
 
 ### Key Components
 
@@ -361,9 +361,9 @@ ENTRYPOINT ["python3", "/app/wrapper.py"]
 **1. Slim Base Image**
 
 Use `python:3.10.15-slim-bookworm` instead of full Python image:
-- ✅ Smaller image size (~150MB vs ~1GB)
-- ✅ Faster build and deployment
-- ✅ Includes essential system libraries
+- Smaller image size (~150MB vs ~1GB)
+- Faster build and deployment
+- Includes essential system libraries
 
 **2. System Dependencies**
 
@@ -397,7 +397,7 @@ This optimizes Docker layer caching.
 ENTRYPOINT ["python3", "/app/wrapper.py"]
 ```
 
-BIOMERO passes all arguments after the entrypoint.
+BIOMERO passes all arguments after the entry point.
 
 ### .dockerignore
 
@@ -573,7 +573,7 @@ The workflow descriptor tells OMERO how to run your workflow:
 
 **Important: No Cytomine Parameters**
 
-❌ **Old BIAFLOWS format** (don't use):
+**Old BIAFLOWS format** (don't use):
 ```json
 {
   "id": "cytomine_host",
@@ -582,7 +582,7 @@ The workflow descriptor tells OMERO how to run your workflow:
 }
 ```
 
-✅ **BIOMERO format** (use this):
+**BIOMERO format** (use this):
 ```json
 {
   "id": "min_thresh",
@@ -632,33 +632,6 @@ https://github.com/username/W_WorkflowName/tree/v1.0.0
 https://github.com/username/W_WorkflowName/raw/v1.0.0/descriptor.json
 ```
 
-### SLURM Server Setup
-
-**1. Convert Docker to Singularity**
-
-On the SLURM server:
-```bash
-# Pull from DockerHub
-singularity pull docker://alexandrumihai2020/w-imagemaskprocessor:v1.0.0
-
-# Move to workflows directory
-mkdir -p /home/slurm/my-scratch/singularity_images/workflows/minimal_python_thresh
-mv w-imagemaskprocessor_v1.0.0.sif /home/slurm/my-scratch/singularity_images/workflows/minimal_python_thresh/
-```
-
-**2. BIOMERO Configuration**
-
-Update BIOMERO configuration to recognize the workflow:
-```python
-WORKFLOWS = {
-    'minimal_python_thresh': {
-        'name': 'ImageMaskProcessor',
-        'url': 'https://github.com/alexandru-mihai-94/W_ImageMaskProcessor/tree/{version}',
-        'versions': ['v1.0.0', 'v0.27', 'v0.26']
-    }
-}
-```
-
 ### OMERO Web Interface
 
 Once deployed, users see:
@@ -672,9 +645,9 @@ Once deployed, users see:
 - Minimum area: [number input, default: 1.0]
 
 **3. Output Options**
-- ☑ Add as new images in NEW dataset
-- ☑ Upload result CSVs as OMERO tables
-- ☑ Attach as zip to project
+- Add as new images in NEW dataset
+- Upload result CSVs as OMERO tables
+- Attach as zip to project
 
 **4. Execution Flow**
 
@@ -682,7 +655,7 @@ Once deployed, users see:
 1. User selects images in OMERO
 2. User selects workflow and parameters
 3. OMERO exports images to SLURM
-4. BIOMERO converts ZARR to TIFF
+4. BIOMERO converts ZARR to TIFF (maybe)
 5. SLURM submits job:
    singularity run w-imagemaskprocessor_v1.0.0.sif \
      --infolder /data/in \
@@ -750,20 +723,20 @@ From OMERO interface:
 
 Expected outputs:
 ```
-✅ Job completes successfully
-✅ Files in output directory:
+Job completes successfully
+Files in output directory:
    - image_name_mask.tif (binary mask)
    - image_name_statistics.csv (region properties)
-✅ CSV imported as OMERO table
-✅ Mask image visible in new dataset
+CSV imported as OMERO table
+Mask image visible in new dataset
 ```
 
 **3. Check for Common Issues**
 
-❌ **Filename issues**: Look for `.0` in filenames (should be removed)
-❌ **Compression errors**: "requires imagecodecs package" (use uncompressed TIFF)
-❌ **Type errors**: "CV_16UC1 not supported" (convert to uint8 after threshold)
-❌ **Import failures**: Check OMERO logs for silent failures
+**Filename issues**: Look for `.0` in filenames (should be removed)
+**Compression errors**: "requires imagecodecs package" (use uncompressed TIFF)
+**Type errors**: "CV_16UC1 not supported" (convert to uint8 after threshold)
+**Import failures**: Check OMERO logs for silent failures
 
 ### Debugging
 
@@ -783,128 +756,79 @@ print(f"DEBUG: Found {len(contours)} contours")
 cat /tmp/omero-{job_id}.log
 ```
 
-**3. Check OMERO Server Logs**
-
-```bash
-# On OMERO server
-tail -f /opt/omero/server/OMERO.server/var/log/biomero.log
-```
-
-**4. Manual Singularity Test**
-
-```bash
-# On SLURM server
-singularity run \
-  /path/to/w-imagemaskprocessor_v1.0.0.sif \
-  --infolder /test/in \
-  --outfolder /test/out \
-  --min-thresh 10 \
-  --min-area 1.0
-```
-
 ---
 
 ## 6. Best Practices
 
 ### Code Organization
 
-✅ **DO:**
+**DO:**
 - Separate core logic from workflow integration
 - Use descriptive function and variable names
-- Add comprehensive docstrings
-- Handle errors gracefully
-- Print progress messages
 
-❌ **DON'T:**
+**DON'T:**
 - Mix OMERO-specific code with core algorithms
 - Use hardcoded paths or parameters
 - Assume specific file formats without checking
-- Fail silently without error messages
 
 ### Parameter Design
 
-✅ **DO:**
+**DO:**
 - Provide sensible defaults
 - Use clear, descriptive parameter names
 - Add helpful descriptions
 - Validate parameter ranges
 
-❌ **DON'T:**
+**DON'T:**
 - Require too many parameters
-- Use technical jargon in parameter names
 - Omit parameter descriptions
 - Allow invalid parameter combinations
 
 ### File Handling
 
-✅ **DO:**
+**DO:**
 - Clean OMERO filenames (remove `.X.tif`)
 - Use uncompressed TIFF for masks
 - Handle both 8-bit and 16-bit images
 - Verify files exist before processing
 
-❌ **DON'T:**
-- Assume specific filename patterns
-- Use compressed formats (LZW, ZIP)
-- Only support one bit depth
-- Crash on missing files
-
 ### Docker Best Practices
 
-✅ **DO:**
+**DO:**
 - Use slim base images
 - Pin dependency versions
-- Optimize layer caching
-- Build multi-platform images
+- Build multi-platform images (amd64 vs arm64))
 - Use .dockerignore
 
-❌ **DON'T:**
+**DON'T:**
 - Use `latest` tags for dependencies
 - Include test data in images
 - Install unnecessary packages
-- Build only for one platform
 
 ### Version Control
 
-✅ **DO:**
+**DO:**
 - Use semantic versioning (v1.0.0)
 - Tag releases in git
 - Update CHANGELOG.md
 - Keep descriptor.json in sync with code
 
-❌ **DON'T:**
-- Use arbitrary version numbers
-- Deploy untagged versions
-- Skip documentation updates
-- Change API without version bump
-
 ### BIOMERO Integration
 
-✅ **DO:**
+**DO:**
 - Use bioflows_local.py (no Cytomine)
 - Handle unknown arguments gracefully
 - Support standard BIAFLOWS directory structure
 - Return results to output folder
 
-❌ **DON'T:**
-- Require Cytomine server connection
-- Crash on SLURM wrapper arguments
-- Use non-standard directory structure
-- Modify input files
-
 ### Testing
 
-✅ **DO:**
+**DO:**
 - Test locally before deploying
 - Test with real OMERO data
 - Test edge cases (empty images, large images)
 - Verify output formats
 
-❌ **DON'T:**
-- Deploy untested code
-- Test only with synthetic data
-- Skip edge case testing
-- Assume outputs are correct without verification
 
 ---
 
@@ -955,57 +879,18 @@ singularity run \
   - [ ] Local testing complete
   - [ ] Docker container tested
   - [ ] OMERO integration verified
-  - [ ] Edge cases handled
 
 ### Success Criteria
 
 Your workflow is production-ready when:
 
-✅ Workflow completes successfully in OMERO
-✅ Output files have correct names (no `.0`)
-✅ Mask images import to OMERO
-✅ CSV statistics appear as OMERO tables
-✅ Works with various image types (8-bit, 16-bit, color, grayscale)
-✅ Handles large images (100+ megapixels)
-✅ Provides clear progress messages
-✅ Fails gracefully with helpful error messages
-
----
-
-## Additional Resources
-
-### BIOMERO Documentation
-- [BIOMERO GitHub](https://github.com/NL-BioImaging/biomero)
-- [BIAFLOWS Format Specification](https://github.com/Neubias-WG5)
-
-### Reference Implementations
-- [W_CellExpansion](https://github.com/TorecLuik/W_CellExpansion)
-- [W_NucleiSegmentation-Cellpose](https://github.com/TorecLuik/W_NucleiSegmentation-Cellpose)
-- [W_ImageMaskProcessor](https://github.com/alexandru-mihai-94/W_ImageMaskProcessor)
-
-### Tools
-- [OpenCV Documentation](https://docs.opencv.org/)
-- [Docker Documentation](https://docs.docker.com/)
-- [Singularity/Apptainer Documentation](https://apptainer.org/docs/)
-
----
-
-## Conclusion
-
-Building a BIOMERO workflow involves:
-
-1. **Core Processing**: Pure Python image analysis logic
-2. **BIOMERO Integration**: bioflows_local.py for BIAFLOWS compatibility
-3. **Containerization**: Docker for reproducible environments
-4. **Deployment**: OMERO/SLURM integration via descriptor.json
-
-By following this guide and separating concerns, you can create maintainable, reusable workflows that integrate seamlessly with OMERO's image management system and SLURM's high-performance computing capabilities.
-
-**Key Takeaway**: Keep core logic separate from integration code. This makes your workflow:
-- Easier to develop and test
-- More maintainable
-- Reusable in other contexts
-- Compatible with future platform changes
+Workflow completes successfully in OMERO
+Output files have correct names (no `.0`)
+Mask images import to OMERO
+CSV statistics appear as OMERO tables
+Works with various image types (8-bit, 16-bit, color, grayscale)
+Handles large images (100+ megapixels)
+Provides clear progress messages
 
 ---
 
