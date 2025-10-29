@@ -2,20 +2,21 @@
 """
 Wrapper for Image Mask Processor - BIOMERO compatible
 2D image thresholding and region analysis
+
+This wrapper integrates with BIOMERO/OMERO workflows using bioflows_local.
+The core image processing logic is in process_mask.py.
 """
 
 import argparse
 import sys
 import os
 import shutil
-import csv
 from types import SimpleNamespace
 from typing import List, Sequence, Tuple
 from pathlib import Path
 
-import numpy as np
-import cv2
 from bioflows_local import CLASS_SPTCNT, BiaflowsJob, prepare_data, get_discipline
+from process_mask import process_image, clean_omero_filename
 
 
 def _parse_bool(value) -> bool:
@@ -62,133 +63,6 @@ def _clear_directory(directory: str) -> None:
             print(f"Warning: could not remove {entry.path}: {exc}")
 
 
-def _clean_filename(filename: str) -> tuple[str, str]:
-    """
-    Clean OMERO filename and return (base_name, extension).
-
-    OMERO appends .X.tif to filenames (e.g., image.tif.0.tif).
-    This function removes the .X.tif suffix to get the original name.
-
-    Args:
-        filename: Input filename (e.g., "image.tif.0.tif")
-
-    Returns:
-        Tuple of (base_name, extension) (e.g., ("image", ".tif"))
-    """
-    import re
-
-    # Check if filename matches OMERO pattern: *.ext.N.ext
-    # e.g., "image.tif.0.tif" -> base="image", ext=".tif"
-    match = re.match(r'^(.+?)(\.\w+)\.\d+(\.\w+)$', filename)
-    if match:
-        base = match.group(1)
-        ext = match.group(2)
-        print(f"  Cleaned OMERO filename: {filename} -> {base}{ext}")
-        return base, ext
-
-    # Standard filename: just split extension normally
-    base, ext = os.path.splitext(filename)
-    return base, ext
-
-
-def process_image(image_path: str, min_thresh: int, min_area: float, output_mask_path: str, output_csv_path: str):
-    """
-    Process a single image: threshold, find regions, save mask and statistics.
-
-    Args:
-        image_path: Path to input image
-        min_thresh: Minimum threshold value (0-255)
-        min_area: Minimum area in pixels for region filtering
-        output_mask_path: Path to save output mask
-        output_csv_path: Path to save CSV statistics
-    """
-    print(f"Processing: {image_path}")
-
-    # Load image
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    if image is None:
-        raise ValueError(f"Failed to load image: {image_path}")
-
-    # Convert to grayscale if needed
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Apply threshold
-    _, mask = cv2.threshold(image, min_thresh - 1, 255, cv2.THRESH_BINARY)
-
-    # Convert to 8-bit if needed (cv2.findContours requires 8-bit images)
-    if mask.dtype != np.uint8:
-        mask = mask.astype(np.uint8)
-
-    # Find contours
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Analyze regions and collect statistics
-    regions = []
-    for contour in contours:
-        # Basic measurements
-        area = cv2.contourArea(contour)
-        perimeter = cv2.arcLength(contour, True)
-
-        if area < min_area:
-            continue
-
-        # Bounding box
-        x, y, w, h = cv2.boundingRect(contour)
-
-        # Centroid
-        M = cv2.moments(contour)
-        if M['m00'] != 0:
-            cx = M['m10'] / M['m00']
-            cy = M['m01'] / M['m00']
-        else:
-            cx, cy = x + w/2, y + h/2
-
-        # Shape metrics
-        aspect_ratio = float(w) / h if h > 0 else 0
-        circularity = 4 * np.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
-
-        # Simplified polygon
-        epsilon = 0.005 * perimeter
-        polygon = cv2.approxPolyDP(contour, epsilon, True)
-        polygon_coords = [(int(pt[0][0]), int(pt[0][1])) for pt in polygon]
-        polygon_str = ';'.join([f"{x},{y}" for x, y in polygon_coords])
-
-        regions.append({
-            'region_id': len(regions),
-            'area_pixels': round(area, 2),
-            'perimeter': round(perimeter, 2),
-            'centroid_x': round(cx, 2),
-            'centroid_y': round(cy, 2),
-            'bbox_x': x,
-            'bbox_y': y,
-            'bbox_width': w,
-            'bbox_height': h,
-            'aspect_ratio': round(aspect_ratio, 3),
-            'circularity': round(circularity, 3),
-            'polygon': polygon_str
-        })
-
-    # Sort by area (largest first)
-    regions.sort(key=lambda r: r['area_pixels'], reverse=True)
-    for i, region in enumerate(regions):
-        region['region_id'] = i
-
-    # Save mask (uncompressed TIFF for OMERO compatibility)
-    cv2.imwrite(output_mask_path, mask, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
-
-    # Save CSV
-    if regions:
-        with open(output_csv_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=regions[0].keys())
-            writer.writeheader()
-            writer.writerows(regions)
-
-    print(f"  ✓ Mask saved: {output_mask_path}")
-    print(f"  ✓ CSV saved: {output_csv_path}")
-    print(f"  ✓ Regions detected: {len(regions)}")
-
-
 def main(argv):
     """Main execution function."""
     overrides, remaining = _parse_cli_args(argv)
@@ -224,11 +98,11 @@ def main(argv):
             fn = os.path.join(in_path, bfimg.filename)
 
             # Generate output filenames (clean OMERO naming convention)
-            base_name, ext = _clean_filename(bfimg.filename)
+            base_name, ext = clean_omero_filename(bfimg.filename)
             mask_filename = f"{base_name}_mask{ext}"
             csv_filename = f"{base_name}_statistics.csv"
 
-            # Process image
+            # Process image using core processing module
             process_image(
                 image_path=fn,
                 min_thresh=min_thresh,
@@ -241,7 +115,7 @@ def main(argv):
         print("Copying results to output folder...")
         for bimg in in_imgs:
             # Clean OMERO filename
-            base_name, ext = _clean_filename(bimg.filename)
+            base_name, ext = clean_omero_filename(bimg.filename)
 
             # Copy mask
             mask_filename = f"{base_name}_mask{ext}"

@@ -27,6 +27,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application files
 ADD descriptor.json /app/descriptor.json
 ADD bioflows_local.py /app/bioflows_local.py
+ADD process_mask.py /app/process_mask.py
 ADD wrapper.py /app/wrapper.py
 
 # Set entrypoint

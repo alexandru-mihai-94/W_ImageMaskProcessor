@@ -72,13 +72,21 @@ python wrapper.py \
 
 ```
 W_ImageMaskProcessor/
-├── wrapper.py          # Main script (BIAFLOWS compatible)
+├── wrapper.py          # BIOMERO workflow integration (BIAFLOWS compatible)
+├── process_mask.py     # Core image processing logic (mask generation & analysis)
+├── bioflows_local.py   # Standalone BIAFLOWS helper (no Cytomine dependencies)
 ├── descriptor.json     # BIAFLOWS workflow descriptor
-├── Dockerfile         # Container definition
-├── .dockerignore      # Docker build exclusions
-├── .gitignore         # Git exclusions
-└── README.md          # This file
+├── Dockerfile          # Container definition
+├── .dockerignore       # Docker build exclusions
+├── .gitignore          # Git exclusions
+└── README.md           # This file
 ```
+
+## Code Organization
+
+- **wrapper.py**: Handles BIOMERO/OMERO integration, directory management, and workflow orchestration
+- **process_mask.py**: Core processing module for thresholding, contour detection, and statistics extraction
+- **bioflows_local.py**: Provides BIAFLOWS-compatible interface without requiring Cytomine platform
 
 ## Algorithm
 
