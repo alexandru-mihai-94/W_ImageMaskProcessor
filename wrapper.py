@@ -116,6 +116,10 @@ def process_image(image_path: str, min_thresh: int, min_area: float, output_mask
     # Apply threshold
     _, mask = cv2.threshold(image, min_thresh - 1, 255, cv2.THRESH_BINARY)
 
+    # Convert to 8-bit if needed (cv2.findContours requires 8-bit images)
+    if mask.dtype != np.uint8:
+        mask = mask.astype(np.uint8)
+
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
