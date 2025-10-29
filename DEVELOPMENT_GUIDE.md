@@ -19,24 +19,6 @@ This guide documents the complete process of developing a BIOMERO-compatible wor
 
 ## Overview
 
-### What is BIOMERO?
-
-BIOMERO is a framework that integrates image analysis workflows with OMERO (Open Microscopy Environment Remote Objects) through SLURM-based high-performance computing clusters. It enables researchers to run containerized image analysis pipelines directly from the OMERO web interface.
-
-### Architecture
-
-```
-OMERO Server
-    ↓
-BIOMERO Plugin
-    ↓
-SLURM Cluster
-    ↓
-Singularity Container (Docker image)
-    ↓
-Your Workflow (Python script)
-```
-
 ### Key Components
 
 1. **Core Processing Module** (`process_mask.py`): Pure Python image analysis logic
